@@ -1,0 +1,7 @@
+core/ffmpeg.exe
+core/ffprobe.exe
+out/
+**/__pycache__/
+*.mp4
+*.md
+test_*.py

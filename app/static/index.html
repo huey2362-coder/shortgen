@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShortGen — topic in, short out</title>
+<style>
+  :root { --bg:#0e0a1f; --panel:#181231; --card:#1c1638; --ink:#efeaff; --dim:#a99fd0;
+          --accent:#7b6cf0; --gold:#e7c66b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif; background:
+         radial-gradient(1200px 800px at 50% -10%, #241c46 0%, var(--bg) 60%);
+         color:var(--ink); min-height:100vh; }
+  .wrap { max-width:720px; margin:0 auto; padding:40px 20px 80px; }
+  h1 { font-size:34px; margin:0 0 6px; letter-spacing:-.5px; }
+  .kick { color:var(--gold); font-size:13px; letter-spacing:3px; text-transform:uppercase; }
+  .sub { color:var(--dim); margin:0 0 28px; }
+  .card { background:var(--panel); border:1px solid #2a2350; border-radius:16px; padding:22px; }
+  label { display:block; font-size:13px; color:var(--dim); margin:14px 0 6px; }
+  textarea, select, input { width:100%; background:var(--card); color:var(--ink);
+    border:1px solid #2a2350; border-radius:10px; padding:12px 14px; font-size:15px; font-family:inherit; }
+  textarea { min-height:130px; resize:vertical; }
+  .row { display:flex; gap:12px; } .row > div { flex:1; }
+  .btn { margin-top:18px; width:100%; background:var(--gold); color:var(--bg); font-weight:700;
+    font-size:17px; border:none; border-radius:12px; padding:15px; cursor:pointer; }
+  .btn:disabled { opacity:.5; cursor:default; }
+  .hint { font-size:12px; color:var(--dim); margin-top:6px; }
+  .tier { display:inline-block; font-size:11px; padding:2px 8px; border-radius:20px; margin-left:6px; }
+  .free { background:#204d33; color:#7fe6a6; } .paid { background:#4a2340; color:#e58bb4; }
+  #pexrow { display:none; }
+  #status { margin-top:22px; text-align:center; color:var(--dim); min-height:24px; }
+  video { width:100%; border-radius:14px; margin-top:18px; display:none; background:#000; }
+  #dl { display:none; text-align:center; margin-top:12px; }
+  #dl a { color:var(--gold); }
+  .spin { display:inline-block; width:16px; height:16px; border:2px solid #3a3170;
+    border-top-color:var(--gold); border-radius:50%; animation:s .8s linear infinite; vertical-align:-3px; margin-right:8px; }
+  @keyframes s { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kick">ShortGen</div>
+  <h1>Topic in. Short out.</h1>
+  <p class="sub">Paste a script. Get a finished vertical short — voice, synced captions, done.</p>
+
+  <div class="card">
+    <label>Your script (English)</label>
+    <textarea id="script" placeholder="Most people use AI like a search box. One question, one answer. Here's the shift...">Most people use AI like a search box. One question, one answer. Here's the shift. Tell it to ask you questions first, before it answers. Now it interviews you, and gives back something you'd actually use.</textarea>
+
+    <div class="row">
+      <div>
+        <label>Voice</label>
+        <select id="voice">
+          <option value="male">Male (Andrew)</option>
+          <option value="female">Female (Ava)</option>
+        </select>
+      </div>
+      <div>
+        <label>Background</label>
+        <select id="background">
+          <option value="gradient">Gradient — Free</option>
+          <option value="footage">Real footage — Pro</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="pexrow">
+      <label>Pexels API key <span class="tier paid">Pro</span></label>
+      <input id="pexels" placeholder="free key from pexels.com/api">
+      <div class="hint">Real B-roll uses free Pexels footage. Free key, 1-minute signup.</div>
+    </div>
+
+    <button class="btn" id="go">Generate short</button>
+    <div id="status"></div>
+    <video id="video" controls playsinline></video>
+    <div id="dl"><a id="dllink" href="#" download>⬇ Download MP4</a></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+$('background').onchange = e => {
+  $('pexrow').style.display = e.target.value === 'footage' ? 'block' : 'none';
+};
+$('go').onclick = async () => {
+  const script = $('script').value.trim();
+  if (script.split(/\s+/).length < 5) { setStatus('Script is too short.'); return; }
+  const body = { script, voice:$('voice').value, background:$('background').value,
+                 pexels_key: $('pexels').value.trim() || null };
+  $('go').disabled = true; $('video').style.display='none'; $('dl').style.display='none';
+  setStatus('<span class="spin"></span>Starting...');
+  try {
+    const r = await fetch('/api/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const d = await r.json();
+    if (!r.ok) { setStatus('⚠ ' + (d.error||'error')); $('go').disabled=false; return; }
+    poll(d.job_id);
+  } catch(e){ setStatus('⚠ '+e); $('go').disabled=false; }
+};
+function setStatus(h){ $('status').innerHTML = h; }
+async function poll(id){
+  setStatus('<span class="spin"></span>Generating voice, captions, video...');
+  const t = setInterval(async () => {
+    const r = await fetch('/api/status/'+id); const d = await r.json();
+    if (d.status === 'done'){
+      clearInterval(t); $('go').disabled=false;
+      setStatus('✓ Done — ' + d.meta.duration + 's, ' + d.meta.cues + ' captions, ' + d.meta.background);
+      const src = '/api/download/'+id;
+      $('video').src = src; $('video').style.display='block';
+      $('dllink').href = src; $('dl').style.display='block';
+    } else if (d.status === 'error'){
+      clearInterval(t); $('go').disabled=false; setStatus('⚠ ' + (d.error||'generation failed'));
+    }
+  }, 1500);
+}
+</script>
+</body>
+</html>

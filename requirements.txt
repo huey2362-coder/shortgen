@@ -1,0 +1,5 @@
+fastapi>=0.139
+uvicorn[standard]>=0.51
+edge-tts>=7.2
+# 결제 붙일 때: stripe>=10
+# ffmpeg: 윈도우=core/ffmpeg.exe 번들 / 리눅스=OS패키지(Dockerfile에서 apt install)
