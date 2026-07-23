@@ -27,8 +27,8 @@ WM_FONT = os.path.join(HERE, "wm.ttf")
 def _wm_filter():
     """무료 티어 워터마크 (drawtext). fontfile 콜론 이스케이프(ffmpeg 필터 규칙)."""
     ff = WM_FONT.replace("\\", "/").replace(":", "\\:")
-    return (f"drawtext=fontfile='{ff}':text='ShortGen.app':x=(w-text_w)/2:y=72:"
-            f"fontsize=34:fontcolor=white@0.6:box=1:boxcolor=black@0.28:boxborderw=10,")
+    return (f"drawtext=fontfile='{ff}':text='ShortGen.app':x=(w-text_w)/2:y=48:"
+            f"fontsize=24:fontcolor=white@0.6:box=1:boxcolor=black@0.28:boxborderw=8,")
 
 DEFAULT_VOICE = "en-US-AndrewNeural"          # Warm, Confident, Honest
 VOICE_ALT = {"male": "en-US-AndrewNeural", "female": "en-US-AvaNeural"}
@@ -111,8 +111,8 @@ def _keywords(script, k=5):
 
 # ── 배경: 그래디언트 (무료) ────────────────────────────────────────────────
 def _gradient_inputs(dur):
-    grad = (f"gradients=s=1080x1920:c0=#0e0a1f:c1=#241c46:c2=#12183a:c3=#1a1030:"
-            f"nb_colors=4:x0=120:y0=200:x1=980:y1=1750:speed=0.012:duration={dur:.2f}:rate=30")
+    grad = (f"gradients=s=720x1280:c0=#0e0a1f:c1=#241c46:c2=#12183a:c3=#1a1030:"
+            f"nb_colors=4:x0=80:y0=140:x1=650:y1=1160:speed=0.012:duration={dur:.2f}:rate=30")
     pre = "noise=alls=6:allf=t,vignette=PI/5,"
     return ["-f", "lavfi", "-i", grad], pre
 
@@ -143,9 +143,10 @@ def _footage_bg(script, dur, key, work):
             continue
         seg_path = os.path.join(work, f"seg{i}.mp4")
         r = subprocess.run([FFMPEG, "-y", "-t", f"{seg:.2f}", "-i", raw,
-            "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,"
-                   "crop=1080:1920,setsar=1", "-an", "-r", "30",
-            "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", seg_path],
+            "-vf", "scale=720:1280:force_original_aspect_ratio=increase,"
+                   "crop=720:1280,setsar=1", "-an", "-r", "30",
+            "-c:v", "libx264", "-preset", "ultrafast", "-threads", "1",
+            "-pix_fmt", "yuv420p", seg_path],
             capture_output=True)
         if r.returncode == 0:
             segs.append(seg_path)
@@ -214,8 +215,9 @@ def generate_short(script, out_path, voice=None, background="gradient",
 
         cmd = ([FFMPEG, "-y"] + inputs + ["-i", "audio.mp3",
                "-filter_complex", vf, "-map", "[v]", "-map", "1:a",
-               "-t", f"{dur:.2f}", "-r", "30", "-c:v", "libx264", "-preset", "veryfast",
-               "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", "out.mp4"])
+               "-t", f"{dur:.2f}", "-r", "30", "-c:v", "libx264", "-preset", "ultrafast",
+               "-threads", "1", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+               "out.mp4"])
         r = subprocess.run(cmd, cwd=work, capture_output=True, text=True)
         if r.returncode != 0:
             raise RuntimeError("ffmpeg 실패:\n" + r.stderr[-1200:])
