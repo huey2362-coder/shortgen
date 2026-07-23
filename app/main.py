@@ -9,11 +9,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from pydantic import BaseModel
 
 from core.pipeline import generate_short
+from app import billing
 
 app = FastAPI(title="ShortGen")
 
@@ -86,6 +87,31 @@ def api_download(job_id: str):
         return JSONResponse({"error": "not ready"}, status_code=404)
     return FileResponse(j["out"], media_type="video/mp4",
                         filename=f"shortgen_{job_id}.mp4")
+
+
+@app.get("/api/config")
+def api_config():
+    return {"paid_enabled": billing.ENABLED,
+            "price": os.environ.get("STRIPE_PRICE_DISPLAY", "$9/mo")}
+
+
+@app.post("/api/checkout")
+def api_checkout(payload: dict):
+    email = (payload or {}).get("email", "")
+    try:
+        return {"url": billing.create_checkout(email)}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+@app.post("/api/webhook")
+async def api_webhook(request: Request):
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    try:
+        return billing.handle_webhook(payload, sig)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
 
 
 @app.get("/", response_class=HTMLResponse)

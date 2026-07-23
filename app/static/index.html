@@ -35,6 +35,14 @@
   .spin { display:inline-block; width:16px; height:16px; border:2px solid #3a3170;
     border-top-color:var(--gold); border-radius:50%; animation:s .8s linear infinite; vertical-align:-3px; margin-right:8px; }
   @keyframes s { to { transform:rotate(360deg); } }
+  .pricing { display:flex; gap:14px; margin-top:22px; }
+  .ptier { flex:1; background:var(--panel); border:1px solid #2a2350; border-radius:14px; padding:18px; }
+  .ptier.pro { border-color:var(--gold); position:relative; }
+  .ptier h3 { margin:0 0 6px; } .badge { display:inline-block; background:var(--gold); color:var(--bg);
+    font-weight:700; font-size:12px; padding:2px 10px; border-radius:20px; margin-bottom:6px; }
+  .price { font-size:26px; font-weight:800; } .price span { font-size:14px; color:var(--dim); }
+  .ptier ul { margin:10px 0 14px; padding-left:18px; color:var(--dim); font-size:14px; }
+  .ptier .btn { margin-top:0; font-size:15px; padding:11px; }
 </style>
 </head>
 <body>
@@ -75,6 +83,19 @@
     <video id="video" controls playsinline></video>
     <div id="dl"><a id="dllink" href="#" download>⬇ Download MP4</a></div>
   </div>
+
+  <div class="pricing">
+    <div class="ptier">
+      <h3>Free</h3><div class="price">$0</div>
+      <ul><li>Gradient background</li><li>Voice + captions</li><li>Small watermark</li></ul>
+    </div>
+    <div class="ptier pro">
+      <div class="badge">Pro</div>
+      <div class="price" id="proPrice">$9<span>/mo</span></div>
+      <ul><li>Real footage backgrounds</li><li>No watermark</li><li>Priority generation</li></ul>
+      <button class="btn" id="upgrade">Upgrade to Pro</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -112,6 +133,22 @@ async function poll(id){
     }
   }, 1500);
 }
+// pricing + checkout
+fetch('/api/config').then(r=>r.json()).then(c=>{
+  if(c && c.price){ $('proPrice').innerHTML = c.price.replace('/mo','<span>/mo</span>'); }
+}).catch(()=>{});
+$('upgrade').onclick = async () => {
+  const email = prompt('Email for your Pro subscription:');
+  if(!email) return;
+  const b = $('upgrade'); b.disabled=true; b.textContent='Redirecting...';
+  try {
+    const r = await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    const d = await r.json();
+    if(d.url){ window.location = d.url; return; }
+    alert(d.error || 'Payments not enabled yet.');
+  } catch(e){ alert(e); }
+  b.disabled=false; b.textContent='Upgrade to Pro';
+};
 </script>
 </body>
 </html>
